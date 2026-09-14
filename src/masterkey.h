@@ -29,14 +29,16 @@
 #define _MASTERKEY_H
 
 #include <stdint.h>
-
 #include "crypt.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MASTER_KEY_LENGTH 64
 
-
 // Empty master key for default usage.
-const uint8_t MasterKeyZero[MASTER_KEY_LENGTH];
+CRYPTER_EXPORT extern const uint8_t MasterKeyZero[MASTER_KEY_LENGTH];
 
 // Expose master keys for library usage.
 CRYPTER_EXPORT extern const uint8_t MasterKeyPes16[MASTER_KEY_LENGTH];
@@ -45,8 +47,13 @@ CRYPTER_EXPORT extern const uint8_t MasterKeyPes17[MASTER_KEY_LENGTH];
 CRYPTER_EXPORT extern const uint8_t MasterKeyPes18[MASTER_KEY_LENGTH];
 CRYPTER_EXPORT extern const uint8_t MasterKeyPes19[MASTER_KEY_LENGTH];
 CRYPTER_EXPORT extern const uint8_t MasterKeyPes20[MASTER_KEY_LENGTH];
+CRYPTER_EXPORT extern const uint8_t MasterKeyPes21[MASTER_KEY_LENGTH];
 
 // Old global master key, maintained for backwards compability.
 extern uint8_t const *MasterKey;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MASTERKEY_H */
