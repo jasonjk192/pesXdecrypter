@@ -181,14 +181,61 @@ void cryptHeader(uint8_t* output, const uint8_t* input, const uint8_t* key)
 	memcpy(&output[256], &input[256], 64);
 }
 
+static void initDescriptorOld(struct FileDescriptorOld* descriptor)
+{
+	descriptor->encryptionHeader = NULL;
+	descriptor->fileHeader = NULL;
+	descriptor->data = NULL;
+	descriptor->logo = NULL;
+	descriptor->description = NULL;
+	descriptor->serial = NULL;
+}
+
+static void initDescriptorNew(struct FileDescriptorNew* descriptor)
+{
+	descriptor->encryptionHeader = NULL;
+	descriptor->fileHeader = NULL;
+	descriptor->data = NULL;
+	descriptor->logo = NULL;
+	descriptor->description = NULL;
+	descriptor->serial = NULL;
+}
+
+static void initDescriptor15(struct FileDescriptor15* descriptor)
+{
+	descriptor->data = NULL;
+	descriptor->chunk0 = NULL;
+	descriptor->chunk1 = NULL;
+	descriptor->chunk0Size = 0;
+	descriptor->chunk1lenBytes = NULL;
+	descriptor->chunk1Size = 0;
+	descriptor->chunk2lenBytes = NULL;
+	descriptor->chunk2Size = 0;
+}
+
 #pragma endregion
 
 #pragma region Encrypt Decrypt functions
 
-void decryptWithKeyOld(struct FileDescriptorOld* descriptor, const uint8_t* input, const char* masterKey)
+enum CrypterOpResult decryptWithKeyOld(struct FileDescriptorOld* descriptor, const uint8_t* input, const char* masterKey)
 {
+	if (!descriptor || !input || !masterKey)
+		return INVALID_ARGUMENT;
+	initDescriptorOld(descriptor);
+
 	descriptor->encryptionHeader = (uint8_t*)malloc(ENCRYPTION_HEADER_SIZE);
+	if (descriptor->encryptionHeader == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->fileHeader = (struct FileHeaderOld*)malloc(sizeof(struct FileHeaderOld));
+	if (descriptor->fileHeader == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
 
 	cryptHeader(descriptor->encryptionHeader, input, masterKey);
 	input += ENCRYPTION_HEADER_SIZE;
@@ -202,9 +249,32 @@ void decryptWithKeyOld(struct FileDescriptorOld* descriptor, const uint8_t* inpu
 	input += sizeof(struct FileHeaderOld);
 
 	descriptor->data = (uint8_t*)malloc(descriptor->fileHeader->dataSize);
+	if (descriptor->data == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->logo = (uint8_t*)malloc(descriptor->fileHeader->logoSize);
+	if (descriptor->logo == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->description = (uint8_t*)malloc(descriptor->fileHeader->descSize);
+	if (descriptor->description == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->serial = (uint8_t*)malloc(descriptor->fileHeader->serialLength * 2);
+	if (descriptor->serial == NULL)
+	{
+		destroyFileDescriptorOld(descriptor);
+		return ALLOC_FAILED;
+	}
 
 	xorWithLongParam(rollingKey, intermediateKey, 0);
 	cryptStream(descriptor->description, intermediateKey, input, descriptor->fileHeader->descSize);
@@ -221,12 +291,29 @@ void decryptWithKeyOld(struct FileDescriptorOld* descriptor, const uint8_t* inpu
 
 	xorWithLongParam(rollingKey, intermediateKey, 3);
 	cryptStream(descriptor->serial, intermediateKey, input, descriptor->fileHeader->serialLength * 2);
+
+	return OK;
 }
 
-void decryptWithKeyNew(struct FileDescriptorNew* descriptor, const uint8_t* input, const char* masterKey)
+enum CrypterOpResult decryptWithKeyNew(struct FileDescriptorNew* descriptor, const uint8_t* input, const char* masterKey)
 {
+	if (!descriptor || !input || !masterKey)
+		return INVALID_ARGUMENT;
+	initDescriptorNew(descriptor);
+
 	descriptor->encryptionHeader = (uint8_t*)malloc(ENCRYPTION_HEADER_SIZE);
+	if (descriptor->encryptionHeader == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->fileHeader = (struct FileHeaderNew*)malloc(sizeof(struct FileHeaderNew));
+	if (descriptor->fileHeader == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
 
 	cryptHeader(descriptor->encryptionHeader, input, masterKey);
 	input += ENCRYPTION_HEADER_SIZE;
@@ -240,14 +327,36 @@ void decryptWithKeyNew(struct FileDescriptorNew* descriptor, const uint8_t* inpu
 	input += sizeof(struct FileHeaderNew);
 
 	descriptor->data = (uint8_t*)malloc(descriptor->fileHeader->dataSize);
+	if (descriptor->data == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->logo = (uint8_t*)malloc(descriptor->fileHeader->logoSize);
+	if (descriptor->logo == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->description = (uint8_t*)malloc(descriptor->fileHeader->descSize);
+	if (descriptor->description == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	descriptor->serial = (uint8_t*)malloc(descriptor->fileHeader->serialLength * 2);
+	if (descriptor->serial == NULL)
+	{
+		destroyFileDescriptorNew(descriptor);
+		return ALLOC_FAILED;
+	}
 
 	xorWithLongParam(rollingKey, intermediateKey, 0);
 	cryptStream(descriptor->description, intermediateKey, input, descriptor->fileHeader->descSize);
 	input += descriptor->fileHeader->descSize;
-
 
 	xorWithLongParam(rollingKey, intermediateKey, 1);
 	cryptStream(descriptor->logo, intermediateKey, input, descriptor->fileHeader->logoSize);
@@ -259,10 +368,16 @@ void decryptWithKeyNew(struct FileDescriptorNew* descriptor, const uint8_t* inpu
 
 	xorWithLongParam(rollingKey, intermediateKey, 3);
 	cryptStream(descriptor->serial, intermediateKey, input, descriptor->fileHeader->serialLength * 2);
+
+	return OK;
 }
 
-void decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
+enum CrypterOpResult decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
 {
+	if (!descriptor || !input)
+		return INVALID_ARGUMENT;
+	initDescriptor15(descriptor);
+
 	//First 49 bytes are the header section, so reduce length by that amount
 	descriptor->dataSize = descriptor->dataSize - HEADER_BYTES_15;
 
@@ -277,6 +392,12 @@ void decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
 
 	//Place encrypted data in a temporary structure for decryption
 	uint8_t* tmpData = malloc(descriptor->dataSize);
+	if (tmpData == NULL)
+	{
+		destroyFileDescriptor15(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	memcpy_s(tmpData, descriptor->dataSize, &input[HEADER_BYTES_15], descriptor->dataSize);
 
 	//Then do the decryption operation on descriptor->data, initialized from startByte
@@ -299,8 +420,19 @@ void decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
 	//uint8_t chunk0[384]; //Fixed length "Edit file" string
 	//uint8_t chunk1lenBytes[4]; //4 bytes that encode length of chunk 1
 	descriptor->chunk1 = malloc(chunkSizes[1]);
+	if (descriptor->chunk1 == NULL)
+	{
+		destroyFileDescriptor15(descriptor);
+		return ALLOC_FAILED;
+	}
+
 	//uint8_t chunk2lenBytes[4]; //4 bytes that encode length of chunk 2
 	descriptor->data = malloc(chunkSizes[2]);
+	if (descriptor->data == NULL)
+	{
+		destroyFileDescriptor15(descriptor);
+		return ALLOC_FAILED;
+	}
 
 	//Copy each portion of input data to the corresponding structure in descriptor
 	int offset = 0;
@@ -316,10 +448,10 @@ void decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
 
 	free(tmpData);
 
-	return;
+	return OK;
 }
 
-uint8_t* encryptWithKeyOld(const struct FileDescriptorOld* descriptor, int* size, const char* masterKey)
+enum CrypterOpResult encryptWithKeyOld(const struct FileDescriptorOld* descriptor, int* size, const char* masterKey, uint8_t* encryptedResult)
 {
 	*size = ENCRYPTION_HEADER_SIZE
 		+ sizeof(struct FileHeaderOld)
@@ -328,11 +460,9 @@ uint8_t* encryptWithKeyOld(const struct FileDescriptorOld* descriptor, int* size
 		+ descriptor->fileHeader->descSize
 		+ descriptor->fileHeader->serialLength * 2;
 
-	uint8_t* result = (uint8_t*)malloc(*size);
-	if (!result)
-		return NULL;
-
-	uint8_t* output = result;
+	uint8_t* output = (uint8_t*)malloc(*size);
+	if (!output)
+		return ALLOC_FAILED;
 
 	cryptHeader(output, descriptor->encryptionHeader, masterKey);
 	output += ENCRYPTION_HEADER_SIZE;
@@ -360,10 +490,11 @@ uint8_t* encryptWithKeyOld(const struct FileDescriptorOld* descriptor, int* size
 	xorWithLongParam(rollingKey, intermediateKey, 3);
 	cryptStream(output, intermediateKey, descriptor->serial, descriptor->fileHeader->serialLength * 2);
 
-	return result;
+	encryptedResult = output;
+	return OK;
 }
 
-uint8_t* encryptWithKeyNew(const struct FileDescriptorNew* descriptor, int* size, const char* masterKey)
+enum CrypterOpResult encryptWithKeyNew(const struct FileDescriptorNew* descriptor, int* size, const char* masterKey, uint8_t* encryptedResult)
 {
 	*size = ENCRYPTION_HEADER_SIZE
 		+ sizeof(struct FileHeaderNew)
@@ -372,11 +503,9 @@ uint8_t* encryptWithKeyNew(const struct FileDescriptorNew* descriptor, int* size
 		+ descriptor->fileHeader->descSize
 		+ descriptor->fileHeader->serialLength * 2;
 
-	uint8_t* result = (uint8_t*)malloc(*size);
-	if (!result)
-		return NULL;
-
-	uint8_t* output = result;
+	uint8_t* output = (uint8_t*)malloc(*size);
+	if (!output)
+		return ALLOC_FAILED;
 
 	cryptHeader(output, descriptor->encryptionHeader, masterKey);
 	output += ENCRYPTION_HEADER_SIZE;
@@ -404,13 +533,16 @@ uint8_t* encryptWithKeyNew(const struct FileDescriptorNew* descriptor, int* size
 	xorWithLongParam(rollingKey, intermediateKey, 3);
 	cryptStream(output, intermediateKey, descriptor->serial, descriptor->fileHeader->serialLength * 2);
 
-	return result;
+	encryptedResult = output;
+	return OK;
 }
 
-uint8_t* encryptFile15(const struct FileDescriptor15* descriptor, int* outputLen)
+enum CrypterOpResult encryptFile15(const struct FileDescriptor15* descriptor, int* outputLen, uint8_t* encryptedResult)
 {
 	*outputLen = descriptor->dataSize + HEADER_BYTES_15; //Add 49 byte header
 	uint8_t* output = (uint8_t*)malloc(*outputLen);
+	if (!output)
+		return ALLOC_FAILED;
 
 	//Copy each portion of descriptor data to output array
 	int offset = HEADER_BYTES_15;
@@ -443,43 +575,71 @@ uint8_t* encryptFile15(const struct FileDescriptor15* descriptor, int* outputLen
 		}
 		num2 += 4;
 	}
-	return output;
+	encryptedResult = output;
+	return OK;
 }
 
-struct FileDescriptorOld CRYPTER_EXPORT* createFileDescriptorOld()
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorOld(struct FileDescriptorOld* outDesc)
 {
 	struct FileDescriptorOld* result = malloc(sizeof(struct FileDescriptorOld));
-	if (result)
-		memset(result, 0, sizeof(struct FileDescriptorOld));
-	return result;
+	if (!result)
+		return ALLOC_FAILED;
+
+	memset(result, 0, sizeof(struct FileDescriptorOld));
+	outDesc = result;
+	return OK;
 }
 
-struct FileDescriptorNew CRYPTER_EXPORT* createFileDescriptorNew()
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorNew(struct FileDescriptorNew* outDesc)
 {
 	struct FileDescriptorNew* result = malloc(sizeof(struct FileDescriptorNew));
-	if (result)
-		memset(result, 0, sizeof(struct FileDescriptorNew));
-	return result;
+	if (!result)
+		return ALLOC_FAILED;
+
+	memset(result, 0, sizeof(struct FileDescriptorNew));
+	outDesc = result;
+	return OK;
 }
 
-struct FileDescriptor15 CRYPTER_EXPORT* createFileDescriptor15()
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor15* outDesc)
 {
 	struct FileDescriptor15* result = malloc(sizeof(struct FileDescriptor15));
-	if (result)
+	if (!result)
+		return ALLOC_FAILED;
+	
+	memset(result, 0, sizeof(struct FileDescriptor15));
+	result->chunk0Size = 384;
+	result->chunk0 = malloc(result->chunk0Size);
+	if (result->chunk0)
+		memset(result->chunk0, 0, result->chunk0Size);
+	else
 	{
-		memset(result, 0, sizeof(struct FileDescriptor15));
-		result->chunk0Size = 384;
-		result->chunk0 = malloc(result->chunk0Size);
-		if (result->chunk0)
-			memset(result->chunk0, 0, result->chunk0Size);
-		result->chunk1lenBytes = malloc(4);
-		if (result->chunk1lenBytes)
-			memset(result->chunk1lenBytes, 0, 4);
-		result->chunk2lenBytes = malloc(4);
-		if (result->chunk2lenBytes)
-			memset(result->chunk2lenBytes, 0, 4);
+		free(result);
+		return ALLOC_FAILED;
 	}
-	return result;
+		
+	result->chunk1lenBytes = malloc(4);
+	if (result->chunk1lenBytes)
+		memset(result->chunk1lenBytes, 0, 4);
+	else
+	{
+		free(result->chunk0);
+		free(result);
+		return ALLOC_FAILED;
+	}
+	result->chunk2lenBytes = malloc(4);
+	if (result->chunk2lenBytes)
+		memset(result->chunk2lenBytes, 0, 4);
+	else
+	{
+		free(result->chunk0);
+		free(result->chunk1lenBytes);
+		free(result);
+		return ALLOC_FAILED;
+	}
+	
+	outDesc = result;
+	return OK;
 }
 
 void CRYPTER_EXPORT destroyFileDescriptorOld(struct FileDescriptorOld* desc)
@@ -518,7 +678,7 @@ void CRYPTER_EXPORT destroyFileDescriptor15(struct FileDescriptor15* desc)
 
 #pragma region Read Write functions
 
-OpResult CRYPTER_EXPORT readFile(const char* path, uint8_t** outData, uint32_t* sizePtr)
+enum CrypterOpResult CRYPTER_EXPORT readFile(const char* path, uint8_t** outData, uint32_t* sizePtr)
 {
 	if (!path || !outData)
 		return INVALID_ARGUMENT;
@@ -553,20 +713,7 @@ OpResult CRYPTER_EXPORT readFile(const char* path, uint8_t** outData, uint32_t* 
 	return OK;
 }
 
-uint8_t* readFileDir(const char* dirName, const char* fileName, uint32_t* sizePtr)
-{
-	char* path = (char*)malloc(strlen(dirName) + strlen(fileName) + 2);
-	if (!path)
-		return NULL;
-
-	sprintf_s(path, "%s/%s", dirName, fileName);
-	uint8_t* data = NULL;
-	readFile(path, &data, sizePtr);
-	free(path);
-	return data;
-}
-
-OpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* data, int size)
+enum CrypterOpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* data, int size)
 {
 	FILE* outStream = fopen(path, "wb");
 	if (!outStream)
@@ -575,24 +722,6 @@ OpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* data, int siz
 	fwrite(data, 1, size, outStream);
 	fclose(outStream);
 	return OK;
-}
-
-void writeFileDir(const char* dirName, const char* fileName, const uint8_t* data, int size)
-{
-	struct stat dir;
-	if (stat(dirName, &dir))
-#ifdef __unix__
-		mkdir(dirName, 0777);
-#else
-		mkdir(dirName);
-#endif
-
-	char* path = (char*)malloc(strlen(dirName) + strlen(fileName) + 2);
-	sprintf_s(path, "%s/%s", dirName, fileName);
-
-	writeFile(path, data, size);
-
-	free(path);
 }
 
 #pragma endregion
