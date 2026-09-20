@@ -120,11 +120,11 @@ uint32_t md5(uint8_t* input, int inputLen, uint8_t* computedHash);
 
 #pragma region Encrypt Decrypt functions
 
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorNew(struct FileDescriptorNew *outDesc);
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorNew(struct FileDescriptorNew **outDesc);
 void CRYPTER_EXPORT destroyFileDescriptorNew(struct FileDescriptorNew *desc);
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorOld(struct FileDescriptorOld *outDesc);
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorOld(struct FileDescriptorOld **outDesc);
 void CRYPTER_EXPORT destroyFileDescriptorOld(struct FileDescriptorOld *desc);
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor15 *outDesc);
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor15 **outDesc);
 void CRYPTER_EXPORT destroyFileDescriptor15(struct FileDescriptor15 *desc);
 
 enum CrypterOpResult CRYPTER_EXPORT decryptWithKeyNew(struct FileDescriptorNew *descriptor, const uint8_t *input, const char *masterKey);
@@ -160,6 +160,12 @@ enum CrypterOpResult CRYPTER_EXPORT readFile(const char *path, uint8_t** outData
 /// An <c>OpResult</c> indicating the outcome
 /// </returns>
 enum CrypterOpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* data, int size);
+
+/// <summary>
+/// free the data returned by readFile (if successful)
+/// </summary>
+/// <param name="data">Pointer to the data</param>
+void CRYPTER_EXPORT freeData(uint8_t* data);
 
 #pragma endregion
 

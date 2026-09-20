@@ -219,6 +219,12 @@ static void initDescriptor15(struct FileDescriptor15* descriptor)
 
 enum CrypterOpResult decryptWithKeyOld(struct FileDescriptorOld* descriptor, const uint8_t* input, const char* masterKey)
 {
+#ifdef DEBUG
+	if(!descriptor) fprintf(stderr, "decryptWithKeyOld: descriptor is empty\n");
+	if(!input) fprintf(stderr, "decryptWithKeyOld: input is empty\n");
+	if(!masterKey) fprintf(stderr, "decryptWithKeyOld: masterKey is empty\n"); 
+#endif
+
 	if (!descriptor || !input || !masterKey)
 		return INVALID_ARGUMENT;
 	initDescriptorOld(descriptor);
@@ -297,6 +303,12 @@ enum CrypterOpResult decryptWithKeyOld(struct FileDescriptorOld* descriptor, con
 
 enum CrypterOpResult decryptWithKeyNew(struct FileDescriptorNew* descriptor, const uint8_t* input, const char* masterKey)
 {
+#ifdef DEBUG
+	if (!descriptor) fprintf(stderr, "decryptWithKeyNew: descriptor is empty\n");
+	if (!input) fprintf(stderr, "decryptWithKeyNew: input is empty\n");
+	if (!masterKey) fprintf(stderr, "decryptWithKeyNew: masterKey is empty\n");
+#endif
+
 	if (!descriptor || !input || !masterKey)
 		return INVALID_ARGUMENT;
 	initDescriptorNew(descriptor);
@@ -374,6 +386,12 @@ enum CrypterOpResult decryptWithKeyNew(struct FileDescriptorNew* descriptor, con
 
 enum CrypterOpResult decryptFile15(struct FileDescriptor15* descriptor, const uint8_t* input)
 {
+#ifdef DEBUG
+	if (!descriptor) fprintf(stderr, "decryptFile15: descriptor is empty\n");
+	if (!input) fprintf(stderr, "decryptFile15: input is empty\n");
+	if (!masterKey) fprintf(stderr, "decryptFile15: masterKey is empty\n");
+#endif
+
 	if (!descriptor || !input)
 		return INVALID_ARGUMENT;
 	initDescriptor15(descriptor);
@@ -579,30 +597,39 @@ enum CrypterOpResult encryptFile15(const struct FileDescriptor15* descriptor, in
 	return OK;
 }
 
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorOld(struct FileDescriptorOld* outDesc)
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorOld(struct FileDescriptorOld** outDesc)
 {
+	if (!outDesc)
+		return INVALID_ARGUMENT;
+
 	struct FileDescriptorOld* result = malloc(sizeof(struct FileDescriptorOld));
 	if (!result)
 		return ALLOC_FAILED;
 
 	memset(result, 0, sizeof(struct FileDescriptorOld));
-	outDesc = result;
+	*outDesc = result;
 	return OK;
 }
 
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorNew(struct FileDescriptorNew* outDesc)
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptorNew(struct FileDescriptorNew** outDesc)
 {
+	if (!outDesc)
+		return INVALID_ARGUMENT;
+
 	struct FileDescriptorNew* result = malloc(sizeof(struct FileDescriptorNew));
 	if (!result)
 		return ALLOC_FAILED;
 
 	memset(result, 0, sizeof(struct FileDescriptorNew));
-	outDesc = result;
+	*outDesc = result;
 	return OK;
 }
 
-enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor15* outDesc)
+enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor15** outDesc)
 {
+	if (!outDesc)
+		return INVALID_ARGUMENT;
+
 	struct FileDescriptor15* result = malloc(sizeof(struct FileDescriptor15));
 	if (!result)
 		return ALLOC_FAILED;
@@ -638,7 +665,7 @@ enum CrypterOpResult CRYPTER_EXPORT createFileDescriptor15(struct FileDescriptor
 		return ALLOC_FAILED;
 	}
 	
-	outDesc = result;
+	*outDesc = result;
 	return OK;
 }
 
@@ -680,6 +707,11 @@ void CRYPTER_EXPORT destroyFileDescriptor15(struct FileDescriptor15* desc)
 
 enum CrypterOpResult CRYPTER_EXPORT readFile(const char* path, uint8_t** outData, uint32_t* sizePtr)
 {
+#ifdef DEBUG
+	if (!path) fprintf(stderr, "readFile: path is empty\n");
+	if (!outData) fprintf(stderr, "readFile: outData is empty\n");
+#endif
+
 	if (!path || !outData)
 		return INVALID_ARGUMENT;
 	*outData = NULL;
@@ -715,6 +747,14 @@ enum CrypterOpResult CRYPTER_EXPORT readFile(const char* path, uint8_t** outData
 
 enum CrypterOpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* data, int size)
 {
+#ifdef DEBUG
+	if (!path) fprintf(stderr, "writeFile: path is empty\n");
+	if (!data) fprintf(stderr, "writeFile: data is empty\n");
+#endif
+
+	if (!path || !data)
+		return INVALID_ARGUMENT;
+
 	FILE* outStream = fopen(path, "wb");
 	if (!outStream)
 		return OPEN_FAILED;
@@ -722,6 +762,11 @@ enum CrypterOpResult CRYPTER_EXPORT writeFile(const char* path, const uint8_t* d
 	fwrite(data, 1, size, outStream);
 	fclose(outStream);
 	return OK;
+}
+
+void CRYPTER_EXPORT freeData(uint8_t* data)
+{
+	if(!data) free(data);
 }
 
 #pragma endregion
